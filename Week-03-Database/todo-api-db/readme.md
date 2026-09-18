@@ -80,7 +80,7 @@ After clicking "Write Changes" in DB Browser, calling `GET /tasks` from the API 
 
 ### Screenshot
 
-![DB Browser screenshot](screenshot.png)
+![DB Browser screenshot](screenshot.jpeg)
 
 ## What changed from Assignment 1
 
