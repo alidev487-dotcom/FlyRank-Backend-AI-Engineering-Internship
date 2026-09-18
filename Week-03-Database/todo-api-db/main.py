@@ -1,3 +1,4 @@
+
 from fastapi import FastAPI, HTTPException, Response
 from pydantic import BaseModel
 from typing import Optional
@@ -84,3 +85,20 @@ def get_task(task_id: int):
     if row is None:
         raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
     return dict(row)
+
+@app.post("/tasks", status_code=201)
+def create_task(task: TaskCreate):
+    if not task.title or not task.title.strip():
+        raise HTTPException(status_code=400, detail="Title is required and cannot be empty")
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "INSERT INTO tasks (title, done) VALUES (?, ?)",
+        (task.title, 0)
+    )
+    conn.commit()
+    new_id = cursor.lastrowid
+    conn.close()
+
+    return {"id": new_id, "title": task.title, "done": False}
