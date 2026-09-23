@@ -68,3 +68,24 @@ def read_root():
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
+@app.get("/tasks")
+def get_tasks():
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM tasks")
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return rows
+
+@app.get("/tasks/{task_id}")
+def get_task(task_id: int):
+    conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM tasks WHERE id = %s", (task_id,))
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+    return row
