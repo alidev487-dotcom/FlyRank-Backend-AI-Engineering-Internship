@@ -2,6 +2,7 @@ import os
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Header, Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from supabase import create_client, Client
@@ -18,6 +19,8 @@ app = FastAPI(
     description="A secure API with Supabase authentication.",
     version="1.0"
 )
+
+security_scheme = HTTPBearer()
 
 print("Server running and connected to Supabase")
 
@@ -69,12 +72,9 @@ def public_info():
     return {"message": "Welcome stranger! This info is public."}
 
 
-# ---- Stage 4: reusable guard (middleware/dependency) ----
-def verify_token(authorization: Optional[str] = Header(None)):
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Access token required")
-
-    token = authorization.split("Bearer ")[1]
+# ---- Stage 4/5: reusable guard (middleware/dependency) with Swagger bearer support ----
+def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security_scheme)):
+    token = credentials.credentials
     if not token:
         raise HTTPException(status_code=401, detail="Access token required")
 
