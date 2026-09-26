@@ -71,7 +71,7 @@ Created a task via POST, then ran `docker compose down` (which removes both cont
 
 ### Task rows
 
-![Task rows](screenshot-db1.png)
+![Task rows](screenshot-db2.png)
 
 ## What changed from Assignment 2 (SQLite)
 
