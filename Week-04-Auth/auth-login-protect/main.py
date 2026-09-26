@@ -1,10 +1,10 @@
 import os
-from fastapi import FastAPI, HTTPException, Header, Depends
+from typing import Optional
+
+from fastapi import FastAPI, HTTPException, Header
 from pydantic import BaseModel
 from supabase import create_client, Client
 from dotenv import load_dotenv
-from typing import Optional
-
 
 load_dotenv()
 
@@ -62,8 +62,10 @@ def login(credentials: AuthCredentials):
             "refresh_token": response.session.refresh_token,
             "user": response.user
         }
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=401, detail="Invalid login credentials")
+
+
 @app.get("/public/info")
 def public_info():
     return {"message": "Welcome stranger! This info is public."}
@@ -73,7 +75,24 @@ def public_info():
 def profile(authorization: Optional[str] = Header(None)):
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Access token required")
+
     token = authorization.split(" ")[1]
+
     if not token:
         raise HTTPException(status_code=401, detail="Access token required")
-    return {"message": "token present, not yet verified"}
+
+    try:
+        user_response = supabase.auth.get_user(token)
+        user = user_response.user
+        if not user:
+            raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+        return {
+            "id": user.id,
+            "email": user.email,
+            "created_at": user.created_at
+        }
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
