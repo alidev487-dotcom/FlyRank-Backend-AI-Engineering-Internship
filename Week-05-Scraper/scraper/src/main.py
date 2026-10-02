@@ -31,6 +31,13 @@ RATING_WORDS = {
     "Five": 5,
 }
 
+stats = {
+    "start_time": None,
+    "pages_fetched": 0,
+    "cache_hits": 0,
+    "failed_pages": 0,
+}
+
 
 class BookRecord(BaseModel):
     title: str
@@ -52,6 +59,7 @@ def fetch_page(url, cache_filename):
         with open(cache_path, "r", encoding="utf-8") as f:
             html = f.read()
         print(f"CACHE HIT: {cache_filename} ({len(html)} bytes)")
+        stats["cache_hits"] += 1
         return html
 
     headers = {"User-Agent": USER_AGENT}
@@ -61,19 +69,22 @@ def fetch_page(url, cache_filename):
     except requests.RequestException as e:
         print(f"FETCH ERROR: {url}")
         print(f"Reason: {e}")
+        stats["failed_pages"] += 1
         return None
 
     if response.status_code != 200:
         print(f"FETCH FAILED: {url} returned status {response.status_code}")
+        stats["failed_pages"] += 1
         return None
 
-    response.encoding = response.apparent_encoding
+    response.encoding = "utf-8"
     html = response.text
 
     with open(cache_path, "w", encoding="utf-8") as f:
         f.write(html)
 
     print(f"FETCH: {cache_filename} ({len(html)} bytes)")
+    stats["pages_fetched"] += 1
     time.sleep(DELAY_SECONDS)
 
     return html
@@ -263,16 +274,45 @@ def save_records(valid_records, invalid_records):
     print(f"Saved {len(invalid_records)} invalid records to output/errors.json")
 
 
+def save_run_report(valid_records, invalid_records):
+    end_time = datetime.now(timezone.utc)
+    duration_seconds = (end_time - stats["start_time"]).total_seconds()
+
+    report = {
+        "start_time": stats["start_time"].isoformat(),
+        "duration_seconds": round(duration_seconds, 2),
+        "pages_fetched": stats["pages_fetched"],
+        "cache_hits": stats["cache_hits"],
+        "valid_records": len(valid_records),
+        "invalid_records": len(invalid_records),
+        "failed_pages": stats["failed_pages"],
+    }
+
+    os.makedirs("output", exist_ok=True)
+    with open("output/run-report.json", "w", encoding="utf-8") as f:
+        json.dump(report, f, indent=2)
+
+    print("\n--- Run Report ---")
+    print(json.dumps(report, indent=2))
+
+
 def main():
     print("=" * 60)
     print("Polite scraper starting...")
     print("=" * 60)
+
+    stats["start_time"] = datetime.now(timezone.utc)
 
     book_links = discover_all_book_links()
 
     if not book_links:
         print("\nERROR: No book links were discovered.")
         return
+
+    # Deliberately add one broken URL to prove the pipeline survives a bad page
+    book_links.append(
+        "https://books.toscrape.com/catalogue/this-book-does-not-exist_9999/index.html"
+    )
 
     valid_records, invalid_records = extract_all_books(book_links)
 
@@ -281,6 +321,7 @@ def main():
         print(json.dumps(valid_records[0], indent=2, ensure_ascii=False))
 
     save_records(valid_records, invalid_records)
+    save_run_report(valid_records, invalid_records)
 
 
 if __name__ == "__main__":
